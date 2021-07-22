@@ -1,11 +1,12 @@
-/** @module ShortcodeTokenizer */
+/** @module ShortcodesTokenizer */
 
 /* tokens */
+const ROOT = 'ROOT'
 const TEXT = 'TEXT'
-const ERROR = 'ERROR'
 const OPEN = 'OPEN'
 const CLOSE = 'CLOSE'
 const SELF_CLOSING = 'SELF_CLOSING'
+const CUSTOM = 'CUSTOM'
 
 /* eslint-disable */
 
@@ -14,12 +15,12 @@ const RX_KEY = '[a-zA-Z][a-zA-Z0-9_-]*'
 
 /* matches paramters */
 const RX_PARAM =       RX_KEY + '=\\d+\\.\\d+' +         // floats
-                 '|' + RX_KEY + '=\\d+' +                // ints
-                 '|' + RX_KEY + '=(true|false|yes|no)' + // bools
-                 '|' + RX_KEY + '="[^\\]"]*"' +          // double-qouted strings
-                 '|' + RX_KEY + '=\'[^\\]\']*\'' +       // single-qouted strings
-                 '|' + RX_KEY                            // flags
-const RX_PARAMS = '(?:(?:' + RX_PARAM + ')(?:(?!\\s+/?\\])\\s|))+'
+  '|' + RX_KEY + '=\\d+' +                // ints
+  '|' + RX_KEY + '=[^"^\'\\]\\s]+' +      // no-quote strings
+  '|' + RX_KEY + '="[^\\]"]*"' +          // double-qouted strings
+  '|' + RX_KEY + '=\'[^\\]\']*\'' +       // single-qouted strings
+  '|' + RX_KEY                            // flags
+const RX_PARAMS = '(?:(?:' + RX_PARAM + ')(?:(?!\\s+/?\\])|\\s*|))+'
 
 /* matches all code token types, used for quickly
    finding potentia code tokens */
@@ -65,12 +66,6 @@ function getTokenType(str) {
  * @returns {*} mixed value
  */
 function castValue(value) {
-  if (/^\d+$/.test(value)) return Number(value)
-  if (/^\d+.\d+$/.test(value)) return Number(value)
-  if (/^(true|false|yes|no)$/i.test(value)) {
-    value = value.toLowerCase()
-    return value === 'true' || value === 'yes'
-  }
   return value.replace(/(^['"]|['"]$)/g, '')
 }
 
@@ -79,7 +74,8 @@ function castValue(value) {
  * and as a node in the resulting AST.
  */
 export class Token {
-  constructor(type, body, pos = 0) {
+  constructor(type, body = null, pos = 0) {
+    this.id = [...Array(10)].map(i=>(~~(Math.random()*36)).toString(36)).join('')
     this.name = null
     this.type = type
     this.body = body
@@ -94,7 +90,8 @@ export class Token {
    * @access private
    */
   init() {
-    if (this.type !== TEXT && this.type !== ERROR) {
+    if (! [TEXT, ROOT, CUSTOM].includes(this.type)) {
+      // console.log(this)
       const match = this.matchBody()
       this.initName(match)
       if (match[2]) {
@@ -114,7 +111,9 @@ export class Token {
    * @access private
    */
   initParams(paramStr) {
+    // console.log(paramStr, rxParams)
     const match = paramStr.match(rxParams)
+    // console.log('initParams finished')
     this.params = match.reduce((params, paramToken) => {
       paramToken = paramToken.trim()
       let equal = paramToken.indexOf('=')
@@ -133,18 +132,16 @@ export class Token {
   buildParams() {
     let result = ''
 
-    for (const key in this.params) {
-      if (this.params.hasOwnProperty(key)) {
-        const value = this.params[key];
-        const typeOfValue = typeof value
-        if (typeOfValue === 'string') {
-          result = `${result} ${key}="${value}"`
-        } else if (typeOfValue === 'boolean') {
-          const value_ = value ? 'true' : 'false'
-          result = `${result} ${key}=${value_}`
-        } else {
-          result = `${result} ${key}=${value}`
-        }
+    for (const key of Object.keys(this.params)) {
+      const value = this.params[key]
+      const typeOfValue = typeof value
+      if (typeOfValue === 'string') {
+        result = `${result} ${key}="${value}"`
+      } else if (typeOfValue === 'boolean') {
+        const value_ = value ? 'yes' : 'no'
+        result = `${result} ${key}=${value_}`
+      } else {
+        result = `${result} ${key}=${value}`
       }
     }
 
@@ -155,9 +152,10 @@ export class Token {
    * Convert token to string.
    *
    * @param {object|string|null} [params=null]
+   * @param {number} level
    * @return {string}
    */
-  toString(params = null) {
+  toString(params = null, level = 1) {
     if (params instanceof Object) {
       this.params = params
     }
@@ -166,19 +164,16 @@ export class Token {
       ? ` ${params.trim()}`
       : this.buildParams()
 
-    switch (this.type) {
-      case TEXT:
-        return this.body
-
-      case OPEN:
-        return `[${this.name}${computedParams}]${this.children.length ? '{slot}' : ''}[/${this.name}]`
-
-      case SELF_CLOSING:
-        return `[${this.name}${computedParams}/]`
-
-      default:
-        return ''
+    if (this.type === TEXT) {
+      return this.body.trim() + '\n'
     }
+
+    if (this.children.length) {
+      const children = this.children.reduce((s, t) =>  s + '  '.repeat(level) + t.toString(null, level + 1), '')
+      return `[${this.name}${computedParams}]\n${children}${'  '.repeat(level - 1)}[/${this.name}]\n`
+    }
+
+    return `[${this.name}${computedParams}]\n`
   }
 
   /**
@@ -196,7 +191,9 @@ export class Token {
       throw new SyntaxError('Unknown token: ' + this.type)
     }
 
+    // console.log(this.body, rx.toString())
     let match = this.body.match(rx)
+    // console.log('matched')
     if (match === null) {
       throw new SyntaxError('Invalid ' + this.type + ' token: ' + this.body)
     }
@@ -225,8 +222,7 @@ export class Token {
  * @param {boolean} [options.strict=true] strict mode
  * @param {boolean} [options.skipWhiteSpace=false] will ignore tokens containing only white space (basically all \s)
  */
-export default class ShortcodeTokenizer {
-
+export default class ShortcodesTokenizer {
   constructor(input = null, options = {strict: true, skipWhiteSpace: false}) {
     if (typeof options === 'boolean') {
       options = {strict: options, skipWhiteSpace: false}
@@ -238,24 +234,6 @@ export default class ShortcodeTokenizer {
     if (input) {
       this.input(input)
     }
-  }
-
-  /**
-   * @deprecated use options.strict
-   */
-  /* istanbul ignore next */
-   get strict() {
-    console.warn(`Deprecated: use options.strict instead`)
-    return this.options.strict
-  }
-
-  /**
-   * @deprecated use options.strict
-   */
-  /* istanbul ignore next */
-  set strict(value) {
-    console.warn(`Deprecated: use options.strict = ${value} instead`)
-    this.options.strict = value
   }
 
   /**
@@ -319,63 +297,99 @@ export default class ShortcodeTokenizer {
   ast(input = null) {
     let tokens = this.tokens(input)
     let stack = []
-    let ast = []
-    let parent = null
+    const root = new Token(ROOT)
+    let parent = root
     let token
+
     for (token of tokens) {
       if (token.type === TEXT) {
         if (this.options.skipWhiteSpace && token.body.replace(/\s+/g, '').length === 0) {
           continue
         }
-        if (!parent) {
-          ast.push(token)
-        } else {
-          parent.children.push(token)
-        }
+        parent.children.push(token)
       } else if (token.type === OPEN) {
-        if (!parent) {
-          parent = token
-          ast.push(parent)
-        } else {
-          parent.children.push(token)
-          stack.push(parent)
-          parent = token
-        }
+        parent.children.push(token)
+        stack.push(parent)
+        parent = token
       } else if (token.type === CLOSE) {
-        if (!parent || !token.canClose(parent)) {
-          if (this.options.strict) {
-            throw new SyntaxError('Unmatched close token: ' + token.body)
-          } else {
-            let err = new Token(ERROR, token.body)
-            if (!parent) {
-              ast.push(err)
-            } else {
-              parent.children.push(err)
-            }
-          }
-        } else {
+        // Just closing parent token
+        if (token.canClose(parent)) {
           parent.isClosed = true
           parent = stack.pop()
+        } else {
+          parent = this.handleSelfClosingTokens(parent, token, stack)
         }
       } else if (token.type === SELF_CLOSING) {
-        if (!parent) {
-          ast.push(token)
-        } else {
-          parent.children.push(token)
-        }
+        parent.children.push(token)
       } else {
         /* istanbul ignore next */
         throw new SyntaxError('Unknown token: ' + token.type)
       }
     }
-    if (parent) {
-      if (this.options.strict) {
-        throw new SyntaxError('Unmatched open token: ' + parent.body)
-      } else {
-        ast.push(new Token(ERROR, token.body))
+
+    if (parent !== root) {
+      // console.log({lastParent: JSON.parse(JSON.stringify(parent))})
+      this.handleSelfClosingTokens(parent, token, stack)
+    }
+
+    return root.children
+  }
+
+  handleSelfClosingTokens(parent, token, stack) {
+    const openIdx = this.findOpenIdx(token, stack)
+    const openToken = stack[openIdx]
+    openToken.isClosed = true
+
+    stack.push(parent)
+
+    // Close all tokens after opening token
+    for (let i = openIdx + 1; i < stack.length; i++) {
+      parent = stack[i]
+      this.closeTokenAndMoveChildren(parent, openToken)
+      if (! openToken.children.find(o => o === parent)) {
+        openToken.children.push(parent)
       }
     }
-    return ast
+    stack.splice(openIdx + 1)
+
+    // Remove openToken form stack
+    stack.pop()
+    // Set previous parent
+    parent = stack.pop()
+
+    return parent
+  }
+
+  findOpenIdx(token, stack) {
+    // Search if element in stack can be closed
+    let openIdx = null
+    for (let i = stack.length - 1; i >= 0; i --) {
+      if (stack[i].canClose(token)) {
+        openIdx = i
+        break
+      }
+    }
+
+    if (openIdx === null) {
+      // If no opening token found, it will be ROOT token
+      openIdx = 0
+    }
+
+    return openIdx
+  }
+
+  closeTokenAndMoveChildren(token, openToken) {
+    token.isClosed = true
+    token.type = SELF_CLOSING
+
+    token.children.forEach(c => {
+      if (!openToken.children.find(p => p === c)) {
+        // console.log('push', {c})
+        openToken.children.push(c)
+      }
+    })
+
+    token.children = []
   }
 
   /**
@@ -453,13 +467,13 @@ export default class ShortcodeTokenizer {
     if (this.buf.length === 0) {
       this.buf = null
     }
+
     return tokens
   }
 }
 
-Object.assign(ShortcodeTokenizer, {
+Object.assign(ShortcodesTokenizer, {
   TEXT,
-  ERROR,
   OPEN,
   CLOSE,
   SELF_CLOSING,

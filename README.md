@@ -1,6 +1,4 @@
-# DEPRECATED: This is no longer maintained
-
-# Shortcode Tokenizer and AST
+# Shortcodes Tokenizer and AST
 
 [![build status](http://img.shields.io/travis/mblarsen/shortcode-tokenizer.svg)](http://travis-ci.org/mblarsen/shortcode-tokenizer)
 [![Coverage Status](https://coveralls.io/repos/github/mblarsen/shortcode-tokenizer/badge.svg?branch=master)](https://coveralls.io/github/mblarsen/shortcode-tokenizer?branch=master)
@@ -10,30 +8,31 @@
 Tokenizes a string containing shortcodes (re-popularized by WordPress) and outputs
 it as an AST that can be used for further parsing.
 
-If you are only looking for simple transformations from a shortcode to a string
-I suggest that you give these libs a try:
+This lib supports shortcodes with open tags like:
+```
+[container]
+  [posts]
+  [my_cool_shortcode]
+[/container]
+```
 
-* https://github.com/mendezcode/shortcode-parser
-* https://www.npmjs.com/package/meta-shortcodes (handles nested shortcodes)
-
-If you need more control this is the lib for you.
 
 # Install
 
-```javascript
-npm install shortcode-tokenizer
+```bash
+yarn add shortcodes-tokenizer
 ```
 
 # Usage
 
 ```javascript
-import ShortcodeTokenizer from 'shortcode-tokenizer'
+import ShortcodesTokenizer from 'shortcodes-tokenizer'
 
 const input = `
 <h1>Cool Shop</h1>
 [row]
   [col width=6 class="featured"]
-    [product-list list="featured" /]
+    [product-list list="featured"]
   [/col]
   [col width=6 class="featured"]
     <div>Ad: Buy more, Buy often!</div>
@@ -41,7 +40,7 @@ const input = `
 [/row]
 `
 
-const tokenizer = new ShortcodeTokenizer(input)
+const tokenizer = new ShortcodesTokenizer(input)
 tokenizer.ast()
 ```
 
@@ -52,8 +51,8 @@ code-node:
 [
     {
         type: 'TEXT',
-        body: "<h1>Cool Shop</h1>"
-        pos: 0
+        body: "<h1>Cool Shop</h1>",
+        pos: 0,
     },
     {
         type: 'OPEN',
@@ -88,7 +87,7 @@ There are 5 token types:
 
 * TEXT: plain text. `body` contains the content.
 * OPEN: an open token, e.g. `[row]`.
-* SELF_CLOSING: a self-closing token `[post id=1/]`.
+* SELF_CLOSING: a self-closing token `[post id=1]`.
 * CLOSE: a close token, e.g. `[/row]`. You will only see the left-over of these
     tokens in the AST as OPEN tokens that have their `isClosed` value set to
     true.
@@ -134,7 +133,3 @@ Returns an AST created from the input.
 ### `buildTemplate([Token token], [object|string|null params=null])`
 
 Builds template on given token. If `params` is not specified the `token.params` object is used.
-
-# Changelog
-
-See [CHANGELOG.md](https://github.com/mblarsen/shortcode-tokenizer/blob/master/CHANGELOG.md)

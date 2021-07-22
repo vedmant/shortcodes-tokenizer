@@ -1,78 +1,9 @@
-import * as lib from '../../src/shortcode-tokenizer'
+import * as lib from '../../src/shortcodes-tokenizer'
 const Tokenizer = lib.default
 const Token = lib.Token
 
-describe('ShortcodeTokenizer', () => {
-  describe('RegExps', () => {
-    it('should match enclosure tag', function () {
-      expect('[code]').to.match(Tokenizer.rxEnclosure)
-      expect('[/code]').to.match(Tokenizer.rxEnclosure)
-      expect('[code/]').to.match(Tokenizer.rxEnclosure)
-      expect('[code /]').to.match(Tokenizer.rxEnclosure)
-
-      // Not many negativ tests since this is just used
-      // as an indicator that a code is precent or not
-      expect('[ ]').not.to.match(Tokenizer.rxEnclosure)
-    })
-
-    it('should match close tag', function () {
-      expect('[/code]').to.match(Tokenizer.rxClose)
-
-      expect('[/ code]').not.to.match(Tokenizer.rxClose)
-      expect('[/ code ]').not.to.match(Tokenizer.rxClose)
-      expect('[ /code]').not.to.match(Tokenizer.rxClose)
-      expect('[ / code ]').not.to.match(Tokenizer.rxClose)
-    })
-
-    it('should match open tag', function () {
-      expect('[code]').to.match(Tokenizer.rxOpen)
-      expect('[code a]').to.match(Tokenizer.rxOpen)
-      expect('[code a=1]').to.match(Tokenizer.rxOpen)
-      expect('[code a=1.1]').to.match(Tokenizer.rxOpen)
-      expect('[code a="a"]').to.match(Tokenizer.rxOpen)
-      expect('[code a=\'a\']').to.match(Tokenizer.rxOpen)
-
-      expect('[code ]').not.to.match(Tokenizer.rxOpen)
-      expect('[code a ]').not.to.match(Tokenizer.rxOpen)
-      expect('[code a=1 ]').not.to.match(Tokenizer.rxOpen)
-      expect('[code a=1.]').not.to.match(Tokenizer.rxOpen)
-    })
-
-    it('should match self-closing tag', function () {
-      expect('[code/]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code /]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a/]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a /]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=1/]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=1 /]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=1.1/]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=1.1 /]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a="a"/]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a="a" /]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=\'a\'/]').to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=\'a\' /]').to.match(Tokenizer.rxSelfclosing)
-
-      expect('[code  /]').not.to.match(Tokenizer.rxSelfclosing)
-      expect('[code/ ]').not.to.match(Tokenizer.rxSelfclosing)
-      expect('[code / ]').not.to.match(Tokenizer.rxSelfclosing)
-      expect('[code a  /]').not.to.match(Tokenizer.rxSelfclosing)
-      expect('[code a  / ]').not.to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=1./]').not.to.match(Tokenizer.rxSelfclosing)
-      expect('[code a=1. /]').not.to.match(Tokenizer.rxSelfclosing)
-    })
-  })
-
+describe('ShortcodesTokenizer', () => {
   describe('Constructor', () => {
-    it('Should all option when only passing boolean', () => {
-      let tokenizer
-      tokenizer = new Tokenizer(null, true)
-      expect(tokenizer.options.strict).to.be.true
-      expect(tokenizer.options.skipWhiteSpace).to.be.false
-      tokenizer = new Tokenizer(null, false)
-      expect(tokenizer.options.strict).to.be.false
-      expect(tokenizer.options.skipWhiteSpace).to.be.false
-    })
-
     it('Should be able to take options object', () => {
       let tokenizer
       tokenizer = new Tokenizer(null, {})
